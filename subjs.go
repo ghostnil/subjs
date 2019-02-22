@@ -17,6 +17,21 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+func errCheck(err error) {
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func validateURLSchema(domain string) string {
+	if !strings.Contains(domain, "http://") && !strings.Contains(domain, "https://") {
+		fmt.Println("[+] Provide right schema, all requests will be https://", domain)
+		newURL := "https://" + domain
+		return newURL
+	}
+	return ""
+}
+
 func main() {
 
 	var (
@@ -44,14 +59,19 @@ func main() {
 	// scan single domain
 	if outf != "" && singleDomain != "" {
 
-		resp, err := subjs.Get(singleDomain)
-		host := re.FindStringSubmatch(singleDomain)
+		//check domain
+		newURL := validateURLSchema(singleDomain)
+		if newURL != "" {
+			singleDomain = newURL
+		}
 
+		resp, err := subjs.Get(singleDomain)
+		errCheck(err)
+
+		host := re.FindStringSubmatch(singleDomain)
 		if err == nil {
 			doc, err := goquery.NewDocumentFromReader(resp.Body)
-			if err != nil {
-				fmt.Println("Error parsing response from: ", singleDomain)
-			}
+			errCheck(err)
 
 			doc.Find("script").Each(func(index int, s *goquery.Selection) {
 				js, _ := s.Attr("src")
@@ -67,6 +87,7 @@ func main() {
 
 			if len(singleDomainOut) != 0 {
 				bytes, err := json.MarshalIndent(singleDomainOut, "", "    ")
+				errCheck(err)
 				if err == nil {
 					fmt.Println(string(bytes))
 				}
@@ -86,7 +107,7 @@ func main() {
 				domains = append(domains, scanner.Text())
 			}
 			if err := scanner.Err(); err != nil {
-				fmt.Fprintf(os.Stderr, "-> subjs - corben leo\n-> usage: cat urls.txt | subjs", err)
+				fmt.Fprintln(os.Stderr, "-> subjs - corben leo\n-> usage: cat urls.txt | subjs", err)
 				os.Exit(3)
 			}
 		} else {
@@ -95,9 +116,17 @@ func main() {
 
 		// send urls from file to http handler
 		for _, domain := range domains {
+
+			newURL := validateURLSchema(domain)
+			if newURL != "" {
+				domain = newURL
+			}
+
 			resp, err := subjs.Get(domain)
+			errCheck(err)
 
 			host := re.FindStringSubmatch(domain)
+			errCheck(err)
 
 			if err == nil {
 				doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -120,6 +149,7 @@ func main() {
 			// creation file output
 			if len(out) != 0 {
 				bytes, err := json.MarshalIndent(out, "", "    ")
+				errCheck(err)
 				if err == nil {
 					fmt.Println(string(bytes))
 				}
